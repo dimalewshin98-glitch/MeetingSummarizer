@@ -63,6 +63,14 @@ func (r *DBRepository) Ping(ctx context.Context) error {
 	return r.dbConnection.PingContext(ctx)
 }
 
+func (r *DBRepository) Close(ctx context.Context) error {
+	_ = ctx
+	if r.dbConnection != nil {
+		return r.dbConnection.Close()
+	}
+	return nil
+}
+
 func (r *DBRepository) CreateTables(ctx context.Context) error {
 	tx, err := r.dbConnection.BeginTx(ctx, nil)
 	if err != nil {

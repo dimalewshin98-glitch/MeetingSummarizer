@@ -68,7 +68,10 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
-			logger.Log.Info("HTTP server Shutdown")
+			logger.Log.Error("HTTP server Shutdown", "error", err.Error())
+		}
+		if err := repo.Close(ctx); err != nil {
+			logger.Log.Error("Repo Shutdown", "error", err.Error())
 		}
 		close(idleConnsClosed)
 	}()
