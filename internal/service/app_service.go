@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -118,7 +119,7 @@ func (s *AppService) jobFirstInit(job model.Meeting) {
 		}
 		job.MeetingID = meetingID
 		logger.Log.Info("Статус встречи изменён", "meetingID", job.MeetingID, "status", job.Status)
-		s.jobChan <- job
+		s.replyJob(job)
 		s.reply(job, fmt.Sprintf("Запрос зарегистрирован.\nid: %d", job.MeetingID))
 		return
 	}
@@ -136,7 +137,7 @@ func (s *AppService) startProcessJob(job model.Meeting) {
 		return
 	}
 	logger.Log.Info("Статус встречи изменён", "meetingID", job.MeetingID, "status", job.Status)
-	s.jobChan <- job
+	s.replyJob(job)
 }
 
 func (s *AppService) jobTranscribe(job model.Meeting) {
@@ -161,7 +162,7 @@ func (s *AppService) jobTranscribe(job model.Meeting) {
 		return
 	}
 	logger.Log.Info("Статус встречи изменён", "meetingID", job.MeetingID, "status", job.Status)
-	s.jobChan <- job
+	s.replyJob(job)
 }
 
 func (s *AppService) jobSummarize(job model.Meeting) {
@@ -181,7 +182,7 @@ func (s *AppService) jobSummarize(job model.Meeting) {
 		return
 	}
 	logger.Log.Info("Статус встречи изменён", "meetingID", job.MeetingID, "status", job.Status)
-	s.jobChan <- job
+	s.replyJob(job)
 }
 
 func (s *AppService) jobComplete(job model.Meeting) {
@@ -217,6 +218,16 @@ func (s *AppService) reply(job model.Meeting, text string) {
 	resMessage := bot.BotResponseMessage{MessageID: job.MessageID, UserID: job.UserID, Text: text, Date: int(time.Now().Unix())}
 	if err := s.bot.SendMessage(resMessage); err != nil {
 		logger.Log.Error("Не удалось отправить ответ пользователю", "userID", job.UserID, "error", err.Error())
+	}
+}
+
+func (s *AppService) replyJob(job model.Meeting) {
+	select {
+	case s.jobChan <- job:
+	default:
+		err := errors.New("Высокая нагрузка на сервис")
+		logger.Log.Error("Не удалось обработать встречу", "meetingID", job.MeetingID, "error", err.Error())
+		s.jobFail(job, err)
 	}
 }
 
