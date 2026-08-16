@@ -52,7 +52,7 @@ func TestPingHandler(t *testing.T) {
 		{
 			name: "test 2 | Unsuccess | Request type error",
 			want: want{
-				statusCode: 400,
+				statusCode: 405,
 				response:   "Method not allowed\n",
 				dbResponse: nil,
 			},

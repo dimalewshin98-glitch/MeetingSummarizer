@@ -49,52 +49,65 @@ func NewAppService(repo repository.RepositoryInterface, bot bot.BotInterface, sp
 		llmClient:    llmClient,
 		jobChan:      make(chan model.Meeting, config.WorkersCount),
 	}
-	serviceInstance.startWorkers(config.WorkersCount)
-	go serviceInstance.startBotListener()
 	return serviceInstance
+}
+
+func (s *AppService) StartWorkers(ctx context.Context) {
+	for w := 1; w <= s.config.WorkersCount; w++ {
+		go s.worker(ctx, w)
+	}
+}
+
+func (s *AppService) StartBotListener(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Log.Info("Bot Listener остановлен")
+				return
+			default:
+				msg, err := s.bot.RecieveMessage()
+				if err != nil {
+					logger.Log.Error("Bot Listener прервал своб работу", "error", err.Error())
+					return
+				}
+				s.jobChan <- model.Meeting{
+					UserID:      msg.UserID,
+					MessageID:   msg.MessageID,
+					AudioFile:   msg.AudioFile,
+					TextFile:    msg.TextFile,
+					RequestText: msg.Text,
+				}
+			}
+		}
+	}()
 }
 
 func (s *AppService) Ping(ctx context.Context) error {
 	return s.repo.Ping(ctx)
 }
 
-func (s *AppService) startBotListener() {
+func (s *AppService) worker(ctx context.Context, workerID int) {
+	logger.Log.Info("Воркер запущен", "id", workerID)
 	for {
-		msg, err := s.bot.RecieveMessage()
-		if err != nil {
+		select {
+		case <-ctx.Done():
+			logger.Log.Info("Воркер остановлен", "id", workerID)
 			return
-		}
-		s.jobChan <- model.Meeting{
-			UserID:      msg.UserID,
-			MessageID:   msg.MessageID,
-			AudioFile:   msg.AudioFile,
-			TextFile:    msg.TextFile,
-			RequestText: msg.Text,
-		}
-	}
-}
-
-func (s *AppService) startWorkers(workersCount int) error {
-	for w := 1; w <= workersCount; w++ {
-		go s.worker(w)
-	}
-	return nil
-}
-
-func (s *AppService) worker(id int) {
-	for {
-		job := <-s.jobChan
-		switch job.Status {
-		case "":
-			s.jobFirstInit(job)
-		case model.StatusCreated:
-			s.startProcessJob(job)
-		case model.StatusProcessing:
-			s.jobTranscribe(job)
-		case model.StatusTranscribed:
-			s.jobSummarize(job)
-		case model.StatusSummarized:
-			s.jobComplete(job)
+		default:
+			job := <-s.jobChan
+			switch job.Status {
+			case "":
+				s.jobFirstInit(job)
+			case model.StatusCreated:
+				s.startProcessJob(job)
+			case model.StatusProcessing:
+				s.jobTranscribe(job)
+			case model.StatusTranscribed:
+				s.jobSummarize(job)
+			case model.StatusSummarized:
+				s.jobComplete(job)
+			}
 		}
 	}
 }

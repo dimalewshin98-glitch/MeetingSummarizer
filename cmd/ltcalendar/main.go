@@ -57,6 +57,7 @@ func main() {
 
 	app := NewApp(repo, messengerBot, speechClient, llmClient, *cfg)
 	app.StartBot()
+	app.StartWorkers()
 
 	appHandler := app.GetHandler()
 	var srv = http.Server{Addr: cfg.ServerHostPort, Handler: logger.RequestLogger(handler.AuthMiddleware(handler.GzipMiddleware(appHandler), repo, cfg.SecretKey))}
@@ -67,6 +68,7 @@ func main() {
 		<-sigint
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		app.ShutdownWorkers()
 		if err := srv.Shutdown(ctx); err != nil {
 			logger.Log.Error("HTTP server Shutdown", "error", err.Error())
 		}
