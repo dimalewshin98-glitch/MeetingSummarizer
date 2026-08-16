@@ -19,12 +19,12 @@ func NewRequestsHandler(service service.ServiceInterface) *RequestsHandler {
 }
 
 func (s *RequestsHandler) Ping(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusBadRequest)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
 	err := s.service.Ping(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
