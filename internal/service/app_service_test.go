@@ -54,13 +54,13 @@ var testTime = time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
 func TestCmdStatus(t *testing.T) {
 	tests := []struct {
 		name      string
-		arg       string
+		args      []string
 		setupMock func(m *mocks.MockRepositoryInterface)
 		wantReply string
 	}{
 		{
 			name: "test 1 | Success | Completed meeting",
-			arg:  "1",
+			args: []string{"1"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 1).Return(model.Meeting{
 					MeetingID: 1, Status: model.StatusCompleted, CreatedAt: testTime, StatusUpdatedAt: testTime,
@@ -70,7 +70,7 @@ func TestCmdStatus(t *testing.T) {
 		},
 		{
 			name: "test 2 | Success | Failed meeting includes error text",
-			arg:  "2",
+			args: []string{"2"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 2).Return(model.Meeting{
 					MeetingID: 2, Status: model.StatusFailed, ErrorText: "boom", CreatedAt: testTime, StatusUpdatedAt: testTime,
@@ -80,13 +80,13 @@ func TestCmdStatus(t *testing.T) {
 		},
 		{
 			name:      "test 3 | Unsuccess | Non-numeric id",
-			arg:       "abc",
+			args:      []string{"abc"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {},
 			wantReply: "Использование: status <id>",
 		},
 		{
 			name: "test 4 | Unsuccess | Meeting not found",
-			arg:  "3",
+			args: []string{"3"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 3).Return(model.Meeting{}, repository.ErrMeetingNotFound)
 			},
@@ -99,7 +99,7 @@ func TestCmdStatus(t *testing.T) {
 			mockedRepo := mocks.NewMockRepositoryInterface(ctrl)
 			tt.setupMock(mockedRepo)
 			s, fb := newTestAppService(mockedRepo)
-			s.cmdStatus(context.Background(), model.Meeting{UserID: 42}, tt.arg)
+			s.cmdStatus(context.Background(), model.Meeting{UserID: 42}, tt.args)
 			assert.Len(t, fb.sent, 1)
 			assert.Equal(t, tt.wantReply, fb.sent[0].Text)
 		})
@@ -109,13 +109,13 @@ func TestCmdStatus(t *testing.T) {
 func TestCmdGet(t *testing.T) {
 	tests := []struct {
 		name      string
-		arg       string
+		args      []string
 		setupMock func(m *mocks.MockRepositoryInterface)
 		wantReply string
 	}{
 		{
 			name: "test 1 | Success | Meeting with summary",
-			arg:  "1",
+			args: []string{"1"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 1).Return(model.Meeting{
 					MeetingID: 1, Status: model.StatusCompleted, SummaryText: "summary", CreatedAt: testTime,
@@ -125,7 +125,7 @@ func TestCmdGet(t *testing.T) {
 		},
 		{
 			name: "test 2 | Success | Meeting still processing",
-			arg:  "2",
+			args: []string{"2"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 2).Return(model.Meeting{
 					MeetingID: 2, Status: model.StatusTranscribed, CreatedAt: testTime,
@@ -135,13 +135,13 @@ func TestCmdGet(t *testing.T) {
 		},
 		{
 			name:      "test 3 | Unsuccess | Non-numeric id",
-			arg:       "xyz",
+			args:      []string{"xyz"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {},
 			wantReply: "Использование: get <id>",
 		},
 		{
 			name: "test 4 | Unsuccess | Meeting not found",
-			arg:  "3",
+			args: []string{"3"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 3).Return(model.Meeting{}, repository.ErrMeetingNotFound)
 			},
@@ -154,7 +154,7 @@ func TestCmdGet(t *testing.T) {
 			mockedRepo := mocks.NewMockRepositoryInterface(ctrl)
 			tt.setupMock(mockedRepo)
 			s, fb := newTestAppService(mockedRepo)
-			s.cmdGet(context.Background(), model.Meeting{UserID: 42}, tt.arg)
+			s.cmdGet(context.Background(), model.Meeting{UserID: 42}, tt.args)
 			assert.Len(t, fb.sent, 1)
 			assert.Equal(t, tt.wantReply, fb.sent[0].Text)
 		})
@@ -197,7 +197,7 @@ func TestCmdList(t *testing.T) {
 			mockedRepo := mocks.NewMockRepositoryInterface(ctrl)
 			tt.setupMock(mockedRepo)
 			s, fb := newTestAppService(mockedRepo)
-			s.cmdList(context.Background(), model.Meeting{UserID: 42})
+			s.cmdList(context.Background(), model.Meeting{UserID: 42}, []string{})
 			assert.Len(t, fb.sent, 1)
 			assert.Equal(t, tt.wantReply, fb.sent[0].Text)
 		})
@@ -207,19 +207,19 @@ func TestCmdList(t *testing.T) {
 func TestCmdFind(t *testing.T) {
 	tests := []struct {
 		name      string
-		arg       string
+		args      []string
 		setupMock func(m *mocks.MockRepositoryInterface)
 		wantReply string
 	}{
 		{
 			name:      "test 1 | Unsuccess | Empty keyword",
-			arg:       "",
+			args:      []string{""},
 			setupMock: func(m *mocks.MockRepositoryInterface) {},
 			wantReply: "Использование: find <keyword>",
 		},
 		{
 			name: "test 2 | Success | Nothing found",
-			arg:  "keyword",
+			args: []string{"keyword"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().FindMeetings(gomock.Any(), 42, "keyword").Return(nil, nil)
 			},
@@ -227,7 +227,7 @@ func TestCmdFind(t *testing.T) {
 		},
 		{
 			name: "test 3 | Success | Meeting found",
-			arg:  "keyword",
+			args: []string{"keyword"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().FindMeetings(gomock.Any(), 42, "keyword").Return([]model.Meeting{
 					{MeetingID: 5, Status: model.StatusCompleted, SummaryText: "summary", CreatedAt: testTime},
@@ -242,7 +242,7 @@ func TestCmdFind(t *testing.T) {
 			mockedRepo := mocks.NewMockRepositoryInterface(ctrl)
 			tt.setupMock(mockedRepo)
 			s, fb := newTestAppService(mockedRepo)
-			s.cmdFind(context.Background(), model.Meeting{UserID: 42}, tt.arg)
+			s.cmdFind(context.Background(), model.Meeting{UserID: 42}, tt.args)
 			assert.Len(t, fb.sent, 1)
 			assert.Equal(t, tt.wantReply, fb.sent[0].Text)
 		})
@@ -252,22 +252,19 @@ func TestCmdFind(t *testing.T) {
 func TestCmdChat(t *testing.T) {
 	tests := []struct {
 		name      string
-		arg       string
-		arg2      string
+		args      []string
 		setupMock func(m *mocks.MockRepositoryInterface)
 		wantReply string
 	}{
 		{
 			name:      "test 1 | Unsuccess | Missing question",
-			arg:       "1",
-			arg2:      "",
+			args:      []string{"1"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {},
-			wantReply: "Использование: chat <id> <текст вопроса>",
+			wantReply: "Использование: chat <id> <question>",
 		},
 		{
 			name: "test 2 | Unsuccess | Meeting not found",
-			arg:  "1",
-			arg2: "question",
+			args: []string{"1", "question"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 1).Return(model.Meeting{}, repository.ErrMeetingNotFound)
 			},
@@ -275,8 +272,7 @@ func TestCmdChat(t *testing.T) {
 		},
 		{
 			name: "test 3 | Unsuccess | Meeting not completed yet",
-			arg:  "1",
-			arg2: "question",
+			args: []string{"1", "question"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 1).Return(model.Meeting{MeetingID: 1, Status: model.StatusProcessing}, nil)
 			},
@@ -284,8 +280,7 @@ func TestCmdChat(t *testing.T) {
 		},
 		{
 			name: "test 4 | Success | Answer returned",
-			arg:  "1",
-			arg2: "question",
+			args: []string{"1", "question"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().GetMeeting(gomock.Any(), 42, 1).Return(model.Meeting{MeetingID: 1, Status: model.StatusCompleted, SummaryText: "summary"}, nil)
 			},
@@ -298,7 +293,7 @@ func TestCmdChat(t *testing.T) {
 			mockedRepo := mocks.NewMockRepositoryInterface(ctrl)
 			tt.setupMock(mockedRepo)
 			s, fb := newTestAppService(mockedRepo)
-			s.cmdChat(context.Background(), model.Meeting{UserID: 42}, tt.arg, tt.arg2)
+			s.cmdChat(context.Background(), model.Meeting{UserID: 42}, tt.args)
 			assert.Len(t, fb.sent, 1)
 			assert.Equal(t, tt.wantReply, fb.sent[0].Text)
 		})
@@ -308,19 +303,19 @@ func TestCmdChat(t *testing.T) {
 func TestCmdDelete(t *testing.T) {
 	tests := []struct {
 		name      string
-		arg       string
+		args      []string
 		setupMock func(m *mocks.MockRepositoryInterface)
 		wantReply string
 	}{
 		{
 			name:      "test 1 | Unsuccess | Non-numeric id",
-			arg:       "abc",
+			args:      []string{"abc"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {},
 			wantReply: "Использование: delete <id>",
 		},
 		{
 			name: "test 2 | Success | Meeting deleted",
-			arg:  "1",
+			args: []string{"1"},
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().DeleteMeeting(gomock.Any(), 42, 1).Return(nil)
 			},
@@ -331,7 +326,7 @@ func TestCmdDelete(t *testing.T) {
 			setupMock: func(m *mocks.MockRepositoryInterface) {
 				m.EXPECT().DeleteMeeting(gomock.Any(), 42, 2).Return(errors.New("db error"))
 			},
-			arg:       "2",
+			args:      []string{"2"},
 			wantReply: "Не удалось удалить встречу.",
 		},
 	}
@@ -341,7 +336,7 @@ func TestCmdDelete(t *testing.T) {
 			mockedRepo := mocks.NewMockRepositoryInterface(ctrl)
 			tt.setupMock(mockedRepo)
 			s, fb := newTestAppService(mockedRepo)
-			s.cmdDelete(context.Background(), model.Meeting{UserID: 42}, tt.arg)
+			s.cmdDelete(context.Background(), model.Meeting{UserID: 42}, tt.args)
 			assert.Len(t, fb.sent, 1)
 			assert.Equal(t, tt.wantReply, fb.sent[0].Text)
 		})

@@ -160,12 +160,11 @@ func (s *VKBotService) SendMessage(message BotResponseMessage) error {
 }
 
 func (s *VKBotService) RecieveMessage() (BotRequestMessage, error) {
-	select {
-	case msg := <-s.incomingChan:
-		return msg, nil
-	default:
-		return BotRequestMessage{}, errors.New("no incoming messages")
+	msg, ok := <-s.incomingChan
+	if !ok {
+		return BotRequestMessage{}, errors.New("incoming channel closed")
 	}
+	return msg, nil
 }
 
 func (s *VKBotService) listenIncoming() {

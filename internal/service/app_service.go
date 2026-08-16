@@ -62,7 +62,7 @@ func (s *AppService) startBotListener() {
 	for {
 		msg, err := s.bot.RecieveMessage()
 		if err != nil {
-			continue
+			return
 		}
 		s.jobChan <- model.Meeting{
 			UserID:      msg.UserID,
@@ -241,36 +241,34 @@ func (s *AppService) handleCommand(job model.Meeting) {
 	} else {
 		command := strings.ToLower(fields[0])
 		args := fields[1:]
-		validateArg := func(i int) string {
-			if i < len(args) {
-				return args[i]
-			}
-			return ""
-		}
 		switch command {
 		case "start":
 			s.reply(job, commandsInfoText)
 		case "list":
-			s.cmdList(ctx, job)
+			s.cmdList(ctx, job, args)
 		case "status":
-			s.cmdStatus(ctx, job, validateArg(0))
+			s.cmdStatus(ctx, job, args)
 		case "get":
-			s.cmdGet(ctx, job, validateArg(0))
+			s.cmdGet(ctx, job, args)
 		case "find":
-			s.cmdFind(ctx, job, validateArg(0))
+			s.cmdFind(ctx, job, args)
 		case "chat":
-			s.cmdChat(ctx, job, validateArg(0), validateArg(1))
+			s.cmdChat(ctx, job, args)
 		case "retry":
-			s.cmdRetry(ctx, job, validateArg(0))
+			s.cmdRetry(ctx, job, args)
 		case "delete":
-			s.cmdDelete(ctx, job, validateArg(0))
+			s.cmdDelete(ctx, job, args)
 		default:
 			s.reply(job, "Неизвестная команда.\n\n"+commandsInfoText)
 		}
 	}
 }
 
-func (s *AppService) cmdList(ctx context.Context, job model.Meeting) {
+func (s *AppService) cmdList(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) >= 1 {
+		s.reply(job, "Использование: list")
+		return
+	}
 	meetings, err := s.repo.ListMeetings(ctx, job.UserID)
 	if err != nil {
 		s.reply(job, "Не удалось получить список встреч.")
@@ -295,8 +293,12 @@ func (s *AppService) cmdList(ctx context.Context, job model.Meeting) {
 	s.reply(job, resultText)
 }
 
-func (s *AppService) cmdStatus(ctx context.Context, job model.Meeting, arg string) {
-	meetingID, err := strconv.Atoi(arg)
+func (s *AppService) cmdStatus(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) != 1 {
+		s.reply(job, "Использование: status <id>")
+		return
+	}
+	meetingID, err := strconv.Atoi(args[0])
 	if err != nil {
 		s.reply(job, "Использование: status <id>")
 		return
@@ -315,8 +317,12 @@ func (s *AppService) cmdStatus(ctx context.Context, job model.Meeting, arg strin
 	s.reply(job, resultText)
 }
 
-func (s *AppService) cmdGet(ctx context.Context, job model.Meeting, arg string) {
-	meetingID, err := strconv.Atoi(arg)
+func (s *AppService) cmdGet(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) != 1 {
+		s.reply(job, "Использование: get <id>")
+		return
+	}
+	meetingID, err := strconv.Atoi(args[0])
 	if err != nil {
 		s.reply(job, "Использование: get <id>")
 		return
@@ -339,12 +345,16 @@ func (s *AppService) cmdGet(ctx context.Context, job model.Meeting, arg string) 
 	s.reply(job, resultText)
 }
 
-func (s *AppService) cmdFind(ctx context.Context, job model.Meeting, arg string) {
-	if arg == "" {
+func (s *AppService) cmdFind(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) != 1 {
 		s.reply(job, "Использование: find <keyword>")
 		return
 	}
-	meetings, err := s.repo.FindMeetings(ctx, job.UserID, arg)
+	if args[0] == "" {
+		s.reply(job, "Использование: find <keyword>")
+		return
+	}
+	meetings, err := s.repo.FindMeetings(ctx, job.UserID, args[0])
 	if err != nil {
 		s.reply(job, "Не удалось выполнить поиск.")
 		return
@@ -364,16 +374,21 @@ func (s *AppService) cmdFind(ctx context.Context, job model.Meeting, arg string)
 	s.reply(job, resultText)
 }
 
-func (s *AppService) cmdChat(ctx context.Context, job model.Meeting, arg string, arg2 string) {
-	if arg == "" {
-		s.reply(job, "Использование: chat <id> <текст вопроса>")
+func (s *AppService) cmdChat(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) < 2 {
+		s.reply(job, "Использование: chat <id> <question>")
 		return
 	}
-	if arg2 == "" {
-		s.reply(job, "Использование: chat <id> <текст вопроса>")
+	meetingID, err := strconv.Atoi(args[0])
+	if err != nil {
+		s.reply(job, "Использование: chat <id> <question>")
 		return
 	}
-	meetingID, err := strconv.Atoi(arg)
+	question := strings.Join(args[1:], " ")
+	if question == "" {
+		s.reply(job, "Использование: chat <id> <question>")
+		return
+	}
 	meeting, err := s.repo.GetMeeting(ctx, job.UserID, meetingID)
 	if err != nil {
 		s.reply(job, "Встреча не найдена.")
@@ -383,7 +398,7 @@ func (s *AppService) cmdChat(ctx context.Context, job model.Meeting, arg string,
 		s.reply(job, "Встреча еще не обработана.")
 		return
 	}
-	answer, err := s.llmClient.Answer(ctx, meeting.SummaryText, arg2)
+	answer, err := s.llmClient.Answer(ctx, meeting.SummaryText, question)
 	if err != nil {
 		s.reply(job, "Не удалось получить ответ.")
 		return
@@ -391,8 +406,12 @@ func (s *AppService) cmdChat(ctx context.Context, job model.Meeting, arg string,
 	s.reply(job, answer)
 }
 
-func (s *AppService) cmdRetry(ctx context.Context, job model.Meeting, arg string) {
-	meetingID, err := strconv.Atoi(arg)
+func (s *AppService) cmdRetry(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) != 1 {
+		s.reply(job, "Использование: retry <id>")
+		return
+	}
+	meetingID, err := strconv.Atoi(args[0])
 	if err != nil {
 		s.reply(job, "Использование: retry <id>")
 		return
@@ -419,8 +438,12 @@ func (s *AppService) cmdRetry(ctx context.Context, job model.Meeting, arg string
 	s.reply(job, resultText)
 }
 
-func (s *AppService) cmdDelete(ctx context.Context, job model.Meeting, arg string) {
-	meetingID, err := strconv.Atoi(arg)
+func (s *AppService) cmdDelete(ctx context.Context, job model.Meeting, args []string) {
+	if len(args) != 1 {
+		s.reply(job, "Использование: delete <id>")
+		return
+	}
+	meetingID, err := strconv.Atoi(args[0])
 	if err != nil {
 		s.reply(job, "Использование: delete <id>")
 		return
