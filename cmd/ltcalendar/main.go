@@ -50,6 +50,7 @@ func main() {
 		RequestTimeout: time.Duration(cfg.LLMRequestTimeoutSec) * time.Second,
 		RequestRetries: cfg.LLMRequestRetries,
 		RateLimit:      cfg.LLMRequestRateLimit,
+		AuthKey:        cfg.LLMAuthKey,
 	})
 	if err != nil {
 		panic(err)

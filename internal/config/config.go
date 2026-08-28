@@ -26,6 +26,7 @@ type Config struct {
 	SpeechProvider          string
 	LLMProvider             string
 	WorkersCount            int
+	LLMAuthKey              string
 }
 
 func NewConfig() *Config {
@@ -46,8 +47,9 @@ func NewConfig() *Config {
 	speechRequestRetries := flag.Int("srr", 2, "Speech client requests retry count")
 	speechRequestRateLimit := flag.Int("srl", 5, "Speech client requests max concurrency")
 	speechProvider := flag.String("sp", "mock", "Speech client provider (mock)")
-	llmProvider := flag.String("lp", "mock", "LLM client provider (mock)")
+	llmProvider := flag.String("lp", "gigachat", "LLM client provider (mock, gigachat)")
 	workersCount := flag.Int("wc", 5, "Meeting processing workers count")
+	llmAuthKey := flag.String("lak", "", "llmAuthKey")
 	flag.Parse()
 	if envServerHostPort := os.Getenv("SERVER_ADDRESS"); envServerHostPort != "" {
 		*serverHostPort = envServerHostPort
@@ -147,6 +149,9 @@ func NewConfig() *Config {
 	if envLLMProvider := os.Getenv("LLM_PROVIDER"); envLLMProvider != "" {
 		*llmProvider = envLLMProvider
 	}
+	if envLLMAuthKey := os.Getenv("LLM_AUTH_KEY"); envLLMAuthKey != "" {
+		*llmAuthKey = envLLMAuthKey
+	}
 	if envWorkersCount := os.Getenv("WORKERS_COUNT"); envWorkersCount != "" {
 		envWorkersCountInt, err := strconv.Atoi(envWorkersCount)
 		if err != nil {
@@ -174,6 +179,7 @@ func NewConfig() *Config {
 		SpeechProvider:          *speechProvider,
 		LLMProvider:             *llmProvider,
 		WorkersCount:            *workersCount,
+		LLMAuthKey:              *llmAuthKey,
 	}
 	return conf
 }

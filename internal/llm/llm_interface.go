@@ -9,6 +9,7 @@ type LLMClientConfig struct {
 	RequestTimeout time.Duration
 	RequestRetries int
 	RateLimit      int
+	AuthKey        string
 }
 
 type LLMClientInterface interface {
